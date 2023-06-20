@@ -1,0 +1,304 @@
+--Google Ad Words--
+
+select  account_id, campaign_id,segment_date, campaign_name, CAMPAIGN_ADVERTISING_CHANNEL_TYPE, AD_GROUP_NAME, AD_GROUP_AD_NAME, clicks, conversions, COST_MICROS, impressions, video_views
+
+select *
+from "EDW"."BASEDW"."PDS_GAD_SUMMARY" 
+
+select campaign_id from edw.tempdw.PDS_GAD_SUMMARY_BKUP_20230601 group by 1
+
+select  
+    SEGMENT_DATE 
+    , AS_OF_DT , FEED_RUN_ID 
+    , ACCOUNT_ID
+    , ACCOUNT_NAME 
+    , LAST_VALUE(ACCOUNT_NAME) OVER (PARTITION BY ACCOUNT_ID ORDER BY SEGMENT_DATE ) AS Curr_ACCOUNT_NAME
+    , CAMPAIGN_ID 
+    , CAMPAIGN_NAME
+    , LAST_VALUE(CAMPAIGN_NAME) OVER (PARTITION BY CAMPAIGN_ID ORDER BY SEGMENT_DATE ) AS Curr_CAMPAIGN_NAME
+    , AD_GROUP_ID 
+    , AD_GROUP_NAME 
+    , LAST_VALUE(AD_GROUP_NAME) OVER (PARTITION BY AD_GROUP_ID ORDER BY SEGMENT_DATE ) AS Curr_AD_GROUP_NAME
+    , AD_GROUP_AD_ID 
+    , AD_GROUP_AD_NAME 
+    , LAST_VALUE(AD_GROUP_AD_NAME) OVER (PARTITION BY AD_GROUP_AD_ID ORDER BY SEGMENT_DATE ) AS Curr_AD_GROUP_AD_NAME
+    , ACCOUNT_CURRENCY_CODE , ACCOUNT_TIMEZONE , CAMPAIGN_ADVERTISING_CHANNEL_TYPE
+    , CLICKS , CONVERSIONS , COST_MICROS , IMPRESSIONS 
+    , VIDEO_VIEWS , VIDEO_QUARTILE_P100_RATE , VIDEO_QUARTILE_P50_RATE
+from edw.basedw.pds_gad_summary 
+
+
+
+--SA Campaign--
+
+select account_id, campaign_id, account_name,account_type, campaign_name, creation_timestamp::date, campaign_start_date, campaign_end_date, device_targets, 
+        language_targets, country_targets, clicks, cost, impressions, adwords_conversions, adwords_conversions_value, adwords_view_thru_conversions, visits, total_calc_leads, report_date
+
+select * 
+from "EDW"."BASEDW"."PDS_SA360_CAMPAIGN" 
+
+where date_part('year', report_date) = 2023 and date_part('month', report_date) in(1,2)
+
+
+
+--SA Keyword--
+
+select account_id, campaign_id,keyword_id, report_date, creation_timestamp::date, account_name, account_type, campaign_name,  ad_group_name, keyword_match_type,
+        clicks, cost, impressions, adwords_conversions, adwords_conversions_value, adwords_view_thru_conversions, visits, total_calc_leads
+  
+select *  
+from "EDW"."BASEDW"."PDS_SA360_KEYWORD" limit 10
+
+where date_part('year', report_date) = 2023 and date_part('month', report_date) =2
+
+
+
+union all select ACCOUNT_ID,ACCOUNT_NAME,CAMPAIGN_ID,CAMPAIGN_NAME,CLICKS,IMPRESSIONS,ACCOUNT_TYPE,AD_GROUP_ID,AD_GROUP_NAME,ADVERTISER_ID,ADVERTISER_NAME,ADWORDS_CONVERSIONS,AGENCY_ID,AGENCY_NAME,COST,EFFECTIVE_LABELS,
+             REPORT_DATE,TOTAL_CALC_LEADS,null as VIDEO_VIEWS,null as ABSOLUTE_TOP_IMPR_PCT,null as AD_ID,null as AD_NAME,null as ADSET_ID,null as ADSET_NAME,ADWORDS_CONVERSIONS_VALUE,ADWORDS_VIEW_THRU_CONVERSIONS,
+             null as BUSINESS_ID,null as CAMPAIGN_GROUP_ID,null as CAMPAIGN_LABELS,null as CONTENT_ID,null as CONV_SUBS_TOTAL_VALUE,null as CONV_SUBS_WEBSITE_VALUE,null as CONVERSIONS,null as CREATIVE_ID,
+             null as EXTERNAL_WEBSITE_CONVERSIONS,null as EXTERNAL_WEBSITE_POST_CLICK_CONVERSIONS,null as EXTERNAL_WEBSITE_POST_VIEW_CONVERSIONS,null as INLINE_POST_ENGAGEMENT,KEYWORD_ID,KEYWORD_MATCH_TYPE,KEYWORD_TEXT,
+             null as LANDING_PAGE_CLICKS,null as REACH,null as SEARCH_ABSOLUTE_TOP_IMPR_SHARE,null as SEARCH_BUDGET_LOST_IMPR_SHARE,null as SEARCH_IMPRESSION_SHARE,null as SEARCH_RANK_LOST_IMPR_SHARE,null as SEARCH_TOP_IMPR_SHARE,
+             null as TOP_IMPR_PCT,null as TOTAL_ENGAGEMENTS,null as VIDEO_P100_WATCHED,null as VIDEO_P50_WATCHED,null as VIDEO_PLAYED,null as VIDEO_STARTS,null as WEBSITE_CTR_LINK_CLICK,null as LEADS, 
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('LB~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('LB~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('LB~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('LB~', campaign_name)+2),'' )))), '~'))-1) as Line_of_Business,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('CH~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('CH~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('CH~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('CH~', campaign_name)+2),'' )))), '~'))-1) as Media_Channel,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('RE~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('RE~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('RE~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('RE~', campaign_name)+2),'' )))), '~'))-1) as Region,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('PB~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('PB~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('PB~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('PB~', campaign_name)+2),'' )))), '~'))-1) as In_Name_Site,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('KT~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('KT~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('KT~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('KT~', campaign_name)+2),'' )))), '~'))-1) as Keyword_Tactic,
+             'SAKeyword' as Platform
+             from "EDW"."BASEDW"."PDS_SA360_KEYWORD"
+             where date_part(YEAR, report_date) >= 2022 and campaign_id not in('71700000097476088','71700000098214679')
+
+
+
+--Facebook--
+
+select * from "EDW"."BASEDW"."PDS_FB_AD" limit 10
+
+
+
+--Linkedin--
+
+select * from "EDW"."BASEDW"."PDS_LI_CREATIVE_ANALYTICS"
+
+where one_click_leads is not null and one_click_leads <> 0 
+
+
+select * from "EDW"."BASEDW"."PDS_LI_CREATIVE" 
+where creative_id in ('157143584', '157702234')
+
+
+select * from "EDW"."BASEDW"."PDS_LI_CAMPAIGN" limit 10
+
+
+select * from "EDW"."BASEDW"."PDS_LI_ACCOUNT" limit 10
+
+
+
+select c.ACCOUNT_ID,a.ACCOUNT_NAME,c.CAMPAIGN_ID,cm.CAMPAIGN_NAME,ca.CLICKS,ca.IMPRESSIONS,
+             ca.COST_IN_USD as COST,ca.START_DATE as REPORT_DATE,
+             VIDEO_VIEWS,
+             CAMPAIGN_GROUP_ID,CONTENT_ID,
+             CREATIVE_ID,EXTERNAL_WEBSITE_CONVERSIONS,EXTERNAL_WEBSITE_POST_CLICK_CONVERSIONS,EXTERNAL_WEBSITE_POST_VIEW_CONVERSIONS,
+            LANDING_PAGE_CLICKS,
+             ca.VIDEO_COMPLETIONS as VIDEO_P100_WATCHED,
+            VIDEO_STARTS,ca.ONE_CLICK_LEADS as LEADS   
+             from "EDW"."BASEDW"."PDS_LI_CREATIVE_ANALYTICS" ca
+             left join "EDW"."BASEDW"."PDS_LI_CREATIVE" c on ca.sponsored_creative_id = c.creative_id
+             left join "EDW"."BASEDW"."PDS_LI_CAMPAIGN" cm on c.campaign_id = cm.campaign_id
+             left join "EDW"."BASEDW"."PDS_LI_ACCOUNT" a on c.account_id = a.account_id
+             where report_date is not null and cost is not null and date_part(YEAR, report_date) >= 2022
+
+
+
+
+
+
+select  ca.START_DATE as REPORT_DATE, ca.SPONSORED_CREATIVE_ID as CREATIVE_ID, ca.CLICKS, ca.COST_IN_USD as COST, ca.EXTERNAL_WEBSITE_CONVERSIONS, ca.EXTERNAL_WEBSITE_POST_CLICK_CONVERSIONS, ca.EXTERNAL_WEBSITE_POST_VIEW_CONVERSIONS, 
+        ca.IMPRESSIONS, ca.LANDING_PAGE_CLICKS, ca.TOTAL_ENGAGEMENTS, ca.VIDEO_COMPLETIONS as VIDEO_P100_WATCHED, ca.VIDEO_STARTS, ca.VIDEO_VIEWS, ca.ONE_CLICK_LEADS as LEADS,
+        c.ACCOUNT_ID, c.CAMPAIGN_ID, c.CONTENT_ID,
+        cm.CAMPAIGN_GROUP_ID, cm.CAMPAIGN_NAME,
+        a.ACCOUNT_NAME
+        
+from "EDW"."BASEDW"."PDS_LI_CREATIVE_ANALYTICS" ca
+left join "EDW"."BASEDW"."PDS_LI_CREATIVE" c on ca.sponsored_creative_id = c.creative_id
+left join "EDW"."BASEDW"."PDS_LI_CAMPAIGN" cm on c.campaign_id = cm.campaign_id
+left join "EDW"."BASEDW"."PDS_LI_ACCOUNT" a on c.account_id = a.account_id
+
+where report_date is not null
+and cost is not null
+
+
+
+
+
+
+
+select * from "EDW"."BASEDW"."PDS_LI_CREATIVE_ANALYTICS" a
+left join "EDW"."BASEDW"."PDS_LI_CREATIVE" b on a.sponsored_creative_id = b.creative_id
+where b.creative_id is null
+
+        
+
+
+
+--Reddit--
+
+select * from "EDW"."BASEDW"."PDS_RED_AD_REPORT_METRICS"
+select * from "EDW"."BASEDW"."PDS_RED_AD" where name = 'CV~15PEOPLE_CT~BAN_CS~1200X628_CR~VON_PR~BRAND_FF~Business Interest Mobile PP_CE~PNG_CD~7011O0000028iIuQAI'
+select * from "EDW"."BASEDW"."PDS_RED_AD_GROUP"
+select * from "EDW"."BASEDW"."PDS_RED_CAMPAIGN" where campaign_name = 'AR~PER_CH~DIS_LB~BRAND_FS~AWR_RE~AMER_CN~Q2_2022_VIDEO_2'
+
+
+
+--Madison Logic--
+
+
+select * from EDW.BASEDW.PDS_MDL_SUMMARY
+
+
+
+
+--Epsilon--
+
+select * from "EDW"."BASEDW"."PDS_EPS_SUMMARY" //AMER Data
+
+select * from EDW_DEV.BASEDW.PDS_EPS_SUMMARY where region = 'EMEA'
+
+
+
+
+--MASTER UNION --   
+
+select c.ACCOUNT_ID,a.ACCOUNT_NAME,c.CAMPAIGN_ID,cm.CAMPAIGN_NAME,ca.CLICKS,ca.IMPRESSIONS,null as ACCOUNT_TYPE,null as AD_GROUP_ID,null as AD_GROUP_NAME,null as ADVERTISER_ID,
+             null as ADVERTISER_NAME,null as ADWORDS_CONVERSIONS,null as AGENCY_ID,null as AGENCY_NAME,ca.COST_IN_USD as COST,null as EFFECTIVE_LABELS,ca.START_DATE as REPORT_DATE,
+             null as TOTAL_CALC_LEADS,VIDEO_VIEWS,null as ABSOLUTE_TOP_IMPR_PCT,null as AD_ID,null as AD_NAME,null as ADSET_ID,null as ADSET_NAME,null as ADWORDS_CONVERSIONS_VALUE,
+             null as ADWORDS_VIEW_THRU_CONVERSIONS,null as BUSINESS_ID,CAMPAIGN_GROUP_ID,null as CAMPAIGN_LABELS,CONTENT_ID,null as CONV_SUBS_TOTAL_VALUE,null as CONV_SUBS_WEBSITE_VALUE,
+             null as CONVERSIONS,CREATIVE_ID,EXTERNAL_WEBSITE_CONVERSIONS,EXTERNAL_WEBSITE_POST_CLICK_CONVERSIONS,EXTERNAL_WEBSITE_POST_VIEW_CONVERSIONS,null as INLINE_POST_ENGAGEMENT,
+             null as KEYWORD_ID,null as KEYWORD_MATCH_TYPE,null as KEYWORD_TEXT,LANDING_PAGE_CLICKS,null as REACH,null as SEARCH_ABSOLUTE_TOP_IMPR_SHARE,null as SEARCH_BUDGET_LOST_IMPR_SHARE,
+             null as SEARCH_IMPRESSION_SHARE,null as SEARCH_RANK_LOST_IMPR_SHARE,null as SEARCH_TOP_IMPR_SHARE,null as TOP_IMPR_PCT,TOTAL_ENGAGEMENTS,ca.VIDEO_COMPLETIONS as VIDEO_P100_WATCHED,
+             null as VIDEO_P50_WATCHED,null as VIDEO_PLAYED,VIDEO_STARTS,null as WEBSITE_CTR_LINK_CLICK,ca.ONE_CLICK_LEADS as LEADS,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('LB~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('LB~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('LB~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('LB~', campaign_name)+2),'' )))), '~'))-1) as Line_of_Business,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('CH~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('CH~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('CH~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('CH~', campaign_name)+2),'' )))), '~'))-1) as Media_Channel,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('RE~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('RE~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('RE~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('RE~', campaign_name)+2),'' )))), '~'))-1) as Region,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('PB~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('PB~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('PB~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('PB~', campaign_name)+2),'' )))), '~'))-1) as In_Name_Site,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('KT~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('KT~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('KT~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('KT~', campaign_name)+2),'' )))), '~'))-1) as Keyword_Tactic,
+             'LinkedIn' as Platform
+             from "EDW"."BASEDW"."PDS_LI_CREATIVE_ANALYTICS" ca
+             left join "EDW"."BASEDW"."PDS_LI_CREATIVE" c on ca.sponsored_creative_id = c.creative_id
+             left join "EDW"."BASEDW"."PDS_LI_CAMPAIGN" cm on c.campaign_id = cm.campaign_id
+             left join "EDW"."BASEDW"."PDS_LI_ACCOUNT" a on c.account_id = a.account_id
+             where report_date is not null and cost is not null and date_part(YEAR, report_date) >= 2022
+          
+union all select ACCOUNT_ID,ACCOUNT_NAME,CAMPAIGN_ID,CAMPAIGN_NAME,CLICKS,IMPRESSIONS,null as ACCOUNT_TYPE,null as AD_GROUP_ID,null as AD_GROUP_NAME,null as ADVERTISER_ID,null as ADVERTISER_NAME,
+             null as ADWORDS_CONVERSIONS,null as AGENCY_ID,null as AGENCY_NAME,SPEND as COST,null as EFFECTIVE_LABELS,DATE_START as REPORT_DATE,null as TOTAL_CALC_LEADS,video_played as VIDEO_VIEWS,
+             null as ABSOLUTE_TOP_IMPR_PCT,AD_ID,AD_NAME,ADSET_ID,ADSET_NAME,null as ADWORDS_CONVERSIONS_VALUE,null as ADWORDS_VIEW_THRU_CONVERSIONS,BUSINESS_ID,null as CAMPAIGN_GROUP_ID,
+             null as CAMPAIGN_LABELS,null as CONTENT_ID,CONV_SUBS_TOTAL_VALUE,CONV_SUBS_WEBSITE_VALUE,null as CONVERSIONS,null as CREATIVE_ID,null as EXTERNAL_WEBSITE_CONVERSIONS,
+             null as EXTERNAL_WEBSITE_POST_CLICK_CONVERSIONS,null as EXTERNAL_WEBSITE_POST_VIEW_CONVERSIONS,INLINE_POST_ENGAGEMENT,null as KEYWORD_ID,null as KEYWORD_MATCH_TYPE,null as KEYWORD_TEXT,
+             null as LANDING_PAGE_CLICKS,REACH,null as SEARCH_ABSOLUTE_TOP_IMPR_SHARE,null as SEARCH_BUDGET_LOST_IMPR_SHARE,null as SEARCH_IMPRESSION_SHARE,null as SEARCH_RANK_LOST_IMPR_SHARE,
+             null as SEARCH_TOP_IMPR_SHARE,null as TOP_IMPR_PCT,null as TOTAL_ENGAGEMENTS,VIDEO_P100_WATCHED,VIDEO_P50_WATCHED,VIDEO_PLAYED,null as VIDEO_STARTS,WEBSITE_CTR_LINK_CLICK,null as LEADS,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('LB~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('LB~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('LB~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('LB~', campaign_name)+2),'' )))), '~'))-1) as Line_of_Business,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('CH~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('CH~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('CH~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('CH~', campaign_name)+2),'' )))), '~'))-1) as Media_Channel,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('RE~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('RE~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('RE~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('RE~', campaign_name)+2),'' )))), '~'))-1) as Region,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('PB~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('PB~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('PB~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('PB~', campaign_name)+2),'' )))), '~'))-1) as In_Name_Site,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('KT~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('KT~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('KT~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('KT~', campaign_name)+2),'' )))), '~'))-1) as Keyword_Tactic,
+             'Facebook' as Platform
+             from "EDW"."BASEDW"."PDS_FB_AD"
+             where date_part(YEAR, report_date) >= 2022 and account_id <> '281227637430047'
+   
+union all select ACCOUNT_ID,LAST_VALUE(ACCOUNT_NAME) OVER (PARTITION BY ACCOUNT_ID ORDER BY SEGMENT_DATE ) AS ACCOUNT_NAME,CAMPAIGN_ID, LAST_VALUE(CAMPAIGN_NAME) OVER (PARTITION BY CAMPAIGN_ID ORDER BY SEGMENT_DATE ) AS CAMPAIGN_NAME,
+             CLICKS,IMPRESSIONS,null as ACCOUNT_TYPE,AD_GROUP_ID,LAST_VALUE(AD_GROUP_NAME) OVER (PARTITION BY AD_GROUP_ID ORDER BY SEGMENT_DATE ) AS AD_GROUP_NAME,null as ADVERTISER_ID,null as ADVERTISER_NAME,null as ADWORDS_CONVERSIONS,
+             null as AGENCY_ID,null as AGENCY_NAME,COST_MICROS as COST,null as EFFECTIVE_LABELS,SEGMENT_DATE as REPORT_DATE,null as TOTAL_CALC_LEADS,VIDEO_VIEWS,null as ABSOLUTE_TOP_IMPR_PCT,AD_GROUP_AD_ID as AD_ID,
+             LAST_VALUE(AD_GROUP_AD_NAME) OVER (PARTITION BY AD_GROUP_AD_ID ORDER BY SEGMENT_DATE ) as AD_NAME,null as ADSET_ID,null as ADSET_NAME,null as ADWORDS_CONVERSIONS_VALUE,null as ADWORDS_VIEW_THRU_CONVERSIONS,null as BUSINESS_ID,
+             null as CAMPAIGN_GROUP_ID,null as CAMPAIGN_LABELS, null as CONTENT_ID,null as CONV_SUBS_TOTAL_VALUE,null as CONV_SUBS_WEBSITE_VALUE,CONVERSIONS,null as CREATIVE_ID,null as EXTERNAL_WEBSITE_CONVERSIONS,
+             null as EXTERNAL_WEBSITE_POST_CLICK_CONVERSIONS, null as EXTERNAL_WEBSITE_POST_VIEW_CONVERSIONS,null as INLINE_POST_ENGAGEMENT,null as KEYWORD_ID,null as KEYWORD_MATCH_TYPE,null as KEYWORD_TEXT,null as LANDING_PAGE_CLICKS,null as REACH,
+             null as SEARCH_ABSOLUTE_TOP_IMPR_SHARE,null as SEARCH_BUDGET_LOST_IMPR_SHARE,null as SEARCH_IMPRESSION_SHARE,null as SEARCH_RANK_LOST_IMPR_SHARE,null as SEARCH_TOP_IMPR_SHARE,null as TOP_IMPR_PCT,
+             null as TOTAL_ENGAGEMENTS,(video_views*VIDEO_QUARTILE_P100_RATE) as VIDEO_P100_WATCHED,VIDEO_QUARTILE_P50_RATE as VIDEO_P50_WATCHED,null as VIDEO_PLAYED,null as VIDEO_STARTS,null as WEBSITE_CTR_LINK_CLICK,null as LEADS,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('LB~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('LB~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('LB~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('LB~', campaign_name)+2),'' )))), '~'))-1) as Line_of_Business,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('CH~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('CH~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('CH~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('CH~', campaign_name)+2),'' )))), '~'))-1) as Media_Channel,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('RE~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('RE~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('RE~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('RE~', campaign_name)+2),'' )))), '~'))-1) as Region,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('PB~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('PB~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('PB~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('PB~', campaign_name)+2),'' )))), '~'))-1) as In_Name_Site,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('KT~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('KT~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('KT~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('KT~', campaign_name)+2),'' )))), '~'))-1) as Keyword_Tactic,
+             'Google' as Platform
+             from "EDW"."BASEDW"."PDS_GAD_SUMMARY"
+             where date_part(YEAR, report_date) >= 2022
+     
+union all select ACCOUNT_ID,ACCOUNT_NAME,CAMPAIGN_ID,CAMPAIGN_NAME,CLICKS,IMPRESSIONS,ACCOUNT_TYPE,null as AD_GROUP_ID,null as AD_GROUP_NAME,ADVERTISER_ID,ADVERTISER_NAME,ADWORDS_CONVERSIONS,AGENCY_ID,AGENCY_NAME,
+             COST,EFFECTIVE_LABELS,REPORT_DATE,TOTAL_CALC_LEADS,null as VIDEO_VIEWS,ABSOLUTE_TOP_IMPR_PCT,null as AD_ID,null as AD_NAME,null as ADSET_ID,null as ADSET_NAME,null as ADWORDS_CONVERSIONS_VALUE,
+             null as ADWORDS_VIEW_THRU_CONVERSIONS,null as BUSINESS_ID,null as CAMPAIGN_GROUP_ID,CAMPAIGN_LABELS,null as CONTENT_ID,null as CONV_SUBS_TOTAL_VALUE,null as CONV_SUBS_WEBSITE_VALUE,null as CONVERSIONS,
+             null as CREATIVE_ID,null as EXTERNAL_WEBSITE_CONVERSIONS,null as EXTERNAL_WEBSITE_POST_CLICK_CONVERSIONS,null as EXTERNAL_WEBSITE_POST_VIEW_CONVERSIONS,null as INLINE_POST_ENGAGEMENT,null as KEYWORD_ID,
+             null as KEYWORD_MATCH_TYPE,null as KEYWORD_TEXT,null as LANDING_PAGE_CLICKS,null as REACH,SEARCH_ABSOLUTE_TOP_IMPR_SHARE,SEARCH_BUDGET_LOST_IMPR_SHARE,SEARCH_IMPRESSION_SHARE,SEARCH_RANK_LOST_IMPR_SHARE,
+             SEARCH_TOP_IMPR_SHARE,TOP_IMPR_PCT,null as TOTAL_ENGAGEMENTS,null as VIDEO_P100_WATCHED,null as VIDEO_P50_WATCHED,null as VIDEO_PLAYED,null as VIDEO_STARTS,null as WEBSITE_CTR_LINK_CLICK,TOTAL_CALC_LEADS as LEADS,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('LB~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('LB~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('LB~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('LB~', campaign_name)+2),'' )))), '~'))-1) as Line_of_Business,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('CH~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('CH~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('CH~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('CH~', campaign_name)+2),'' )))), '~'))-1) as Media_Channel,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('RE~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('RE~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('RE~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('RE~', campaign_name)+2),'' )))), '~'))-1) as Region,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('PB~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('PB~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('PB~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('PB~', campaign_name)+2),'' )))), '~'))-1) as In_Name_Site,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('KT~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('KT~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('KT~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('KT~', campaign_name)+2),'' )))), '~'))-1) as Keyword_Tactic,
+             'SA360' as Platform
+             from "EDW"."BASEDW"."PDS_SA360_CAMPAIGN"
+             where date_part(YEAR, report_date) >= 2022 and campaign_id not in('71700000097476088','71700000098214679')
+             
+union all select 9999999999 as ACCOUNT_ID,'Reddit' as ACCOUNT_NAME,ra.CAMPAIGN_ID, rc.CAMPAIGN_NAME, CLICKS,IMPRESSIONS,null as ACCOUNT_TYPE,ra.AD_GROUP_ID,rg.NAME as AD_GROUP_NAME,null as ADVERTISER_ID,
+             null as ADVERTISER_NAME,null as ADWORDS_CONVERSIONS,null as AGENCY_ID,null as AGENCY_NAME,SPEND as COST,null as EFFECTIVE_LABELS,REPORT_START_DATE as REPORT_DATE,
+             null as TOTAL_CALC_LEADS,VIDEO_STARTED as VIDEO_VIEWS,null as ABSOLUTE_TOP_IMPR_PCT,r.AD_ID, ra.name as AD_NAME,null as ADSET_ID,null as ADSET_NAME,
+             null as ADWORDS_CONVERSIONS_VALUE,null as ADWORDS_VIEW_THRU_CONVERSIONS,null as BUSINESS_ID,null as CAMPAIGN_GROUP_ID,null as CAMPAIGN_LABELS,null as CONTENT_ID,
+             null as CONV_SUBS_TOTAL_VALUE,null as CONV_SUBS_WEBSITE_VALUE,null as CONVERSIONS,null as CREATIVE_ID,null as EXTERNAL_WEBSITE_CONVERSIONS,
+             null as EXTERNAL_WEBSITE_POST_CLICK_CONVERSIONS,null as EXTERNAL_WEBSITE_POST_VIEW_CONVERSIONS,null as INLINE_POST_ENGAGEMENT,null as KEYWORD_ID,null as KEYWORD_MATCH_TYPE,
+             null as KEYWORD_TEXT,null as LANDING_PAGE_CLICKS,null as REACH,null as SEARCH_ABSOLUTE_TOP_IMPR_SHARE,null as SEARCH_BUDGET_LOST_IMPR_SHARE,null as SEARCH_IMPRESSION_SHARE,
+             null as SEARCH_RANK_LOST_IMPR_SHARE,null as SEARCH_TOP_IMPR_SHARE,null as TOP_IMPR_PCT,null as TOTAL_ENGAGEMENTS,r.VIDEO_WATCHED_50_PERCENT as VIDEO_P100_WATCHED,
+             r.VIDEO_WATCHED_100_PERCENT as VIDEO_P50_WATCHED,null as VIDEO_PLAYED,null as VIDEO_STARTS,null as WEBSITE_CTR_LINK_CLICK,null as LEADS,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('LB~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('LB~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('LB~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('LB~', campaign_name)+2),'' )))), '~'))-1) as Line_of_Business,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('CH~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('CH~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('CH~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('CH~', campaign_name)+2),'' )))), '~'))-1) as Media_Channel,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('RE~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('RE~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('RE~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('RE~', campaign_name)+2),'' )))), '~'))-1) as Region,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('PB~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('PB~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('PB~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('PB~', campaign_name)+2),'' )))), '~'))-1) as In_Name_Site,
+            left(replace((left(replace(campaign_name, left(campaign_name, charindex('KT~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('KT~', campaign_name)+2),'' )))), '~'),
+            charindex('_',replace((left(replace(campaign_name, left(campaign_name, charindex('KT~', campaign_name)+2),'' ), charindex('~',replace(campaign_name, left(campaign_name, charindex('KT~', campaign_name)+2),'' )))), '~'))-1) as Keyword_Tactic,
+             'Reddit' as Platform
+             from "EDW"."BASEDW"."PDS_RED_AD_REPORT_METRICS" r
+             left join "EDW"."BASEDW"."PDS_RED_AD" ra on r.ad_id = ra.ad_id
+             left join "EDW"."BASEDW"."PDS_RED_AD_GROUP" rg on ra.ad_group_id = rg.ad_group_id
+             left join "EDW"."BASEDW"."PDS_RED_CAMPAIGN" rc on ra.campaign_id = rc.campaign_id
+             where date_part(YEAR, report_date) >= 2022
+             
+union all select 8888888888 as ACCOUNT_ID, 'Madison Logic' as ACCOUNT_NAME,CAMPAIGN_ID,CAMPAIGN_NAME,CLICKS,IMPRESSIONS,null as ACCOUNT_TYPE, null as AD_GROUP_ID, null as AD_GROUP_NAME, null as ADVERTISER_ID, null as ADVERTISER_NAME,null as ADWORDS_CONVERSIONS,
+             null as AGENCY_ID,null as AGENCY_NAME,spend as COST,null as EFFECTIVE_LABELS,metric_date as REPORT_DATE, null as TOTAL_CALC_LEADS, video_starts as VIDEO_VIEWS,null as ABSOLUTE_TOP_IMPR_PCT,null as AD_ID,null as AD_NAME,null as ADSET_ID,
+             null as ADSET_NAME,null as ADWORDS_CONVERSIONS_VALUE,null as ADWORDS_VIEW_THRU_CONVERSIONS,null as BUSINESS_ID,null as CAMPAIGN_GROUP_ID,null as CAMPAIGN_LABELS,null as CONTENT_ID,null as CONV_SUBS_TOTAL_VALUE,null as CONV_SUBS_WEBSITE_VALUE,
+             null as CONVERSIONS,null as CREATIVE_ID,null as EXTERNAL_WEBSITE_CONVERSIONS,null as EXTERNAL_WEBSITE_POST_CLICK_CONVERSIONS,null as EXTERNAL_WEBSITE_POST_VIEW_CONVERSIONS,null as INLINE_POST_ENGAGEMENT,null as KEYWORD_ID,null as KEYWORD_MATCH_TYPE,
+             null as KEYWORD_TEXT,null as LANDING_PAGE_CLICKS,null as REACH,null as SEARCH_ABSOLUTE_TOP_IMPR_SHARE,null as SEARCH_BUDGET_LOST_IMPR_SHARE,null as SEARCH_IMPRESSION_SHARE,null as SEARCH_RANK_LOST_IMPR_SHARE,null as SEARCH_TOP_IMPR_SHARE,
+             null as TOP_IMPR_PCT,null as TOTAL_ENGAGEMENTS,video_completions as VIDEO_P100_WATCHED,null as VIDEO_P50_WATCHED,video_starts as VIDEO_PLAYED,null as VIDEO_STARTS,null as WEBSITE_CTR_LINK_CLICK, LEADS,
+             business_unit as Line_of_Business,
+             channel as Media_Channel,
+             region,
+             'MADISON LOGIC' as In_Name_Site,
+             '' as Keyword_Tactic,
+             'Madison Logic' as Platform
+             from "EDW"."BASEDW"."PDS_MDL_SUMMARY"
+             where date_part(YEAR, report_date) >= 2022
