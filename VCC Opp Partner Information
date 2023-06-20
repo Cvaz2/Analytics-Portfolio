@@ -1,0 +1,7 @@
+select o.created_date::date, o.close_date::date, o.name as opportunity_name, a.name as partner_account_name, o.stage_name, o.amount, o.id as opp_id, o.partner_account_c  
+
+from edw.basedw.nvm_sf_opportunity o
+
+join "EDW"."BASEDW"."NVM_SF_ACCOUNT" a on a.id =  o.partner_account_c
+
+where o.partner_account_c is not null and date_part('year', o.created_date) >=2022
