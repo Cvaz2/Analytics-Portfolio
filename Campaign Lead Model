@@ -1,0 +1,30 @@
+with lead as(select  ID, FIRST_NAME||' '||LAST_NAME as name, IS_CONVERTED, CONVERTED_DATE, CONVERTED_CONTACT_ID, CONVERTED_OPPORTUNITY_ID, EMAIL, STATUS, CREATED_DATE, LEAD_SOURCE, SOURCE_CAMPAIGN_C, 'API' as SFInstance
+        from "EDW"."BASEDW"."API_SF_LEAD"
+        union
+        select  ID, FIRST_NAME||' '||LAST_NAME as name, IS_CONVERTED, CONVERTED_DATE, CONVERTED_CONTACT_ID, CONVERTED_OPPORTUNITY_ID, EMAIL, STATUS, CREATED_DATE, LEAD_SOURCE, SOURCE_CAMPAIGN_C, 'VCC' as SFInstance
+        from "EDW"."BASEDW"."NVM_SF_LEAD"
+        union
+        select  ID, FIRST_NAME||' '||LAST_NAME as name, IS_CONVERTED, CONVERTED_DATE, CONVERTED_CONTACT_ID, CONVERTED_OPPORTUNITY_ID, EMAIL, STATUS, CREATED_DATE, LEAD_SOURCE, SOURCE_CAMPAIGN_C, 'VBC' as SFInstance
+        from "EDW"."BASEDW"."VBS_SF_LEAD"),
+        
+        camp as (select NAME as camp_name, TYPE, case when id = '70114000002Z8s2AAC' then '2023-01-01' else created_date end as CREATED_DATE, ID as campid, business_group_c, region_c as camp_region, actual_cost as camp_actual_cost, num_of_leads as Camp_Leads, 
+                    num_of_converted_leads as Camp_Conv_Leads, num_of_contacts as Camp_Contacts, num_of_responses as Camp_Responses, owner_id as camp_owner, 'API' as SFInstance
+         from "EDW"."BASEDW"."API_SF_CAMPAIGN"
+         union
+         select NAME as camp_name, TYPE, case when id = '70114000002Z8s2AAC' then '2023-01-01' else created_date end as CREATED_DATE, ID as campid, business_group_c, geo_region_c as camp_region, actual_cost as camp_actual_cost, number_of_leads as Camp_Leads, 
+                number_of_converted_leads as Camp_Conv_Leads, number_of_contacts as Camp_Contacts, number_of_responses as Camp_Responses,owner_id as camp_owner, 'VCC' as SFInstance
+         from "EDW"."BASEDW"."NVM_SF_CAMPAIGN"
+         union
+         select NAME as camp_name, TYPE, case when id = '70114000002Z8s2AAC' then '2023-01-01' else created_date end as CREATED_DATE, ID as campid, business_group_c, geo_region_c as camp_region, actual_cost as camp_actual_cost, num_of_leads as Camp_Leads, 
+                num_of_converted_leads as Camp_Conv_Leads, num_of_contacts as Camp_Contacts, num_of_responses as Camp_Responses,owner_id as camp_owner, 'VBC' as SFInstance
+         from "EDW"."BASEDW"."VBS_SF_CAMPAIGN")
+        
+   
+ 
+        select lead.sfinstance, camp.camp_name as campaign_name, name as lead_name, email, status as lead_status, lead_source, source_campaign_c, id as lead_id, camp.created_date::date
+        from lead 
+        join camp on lead.source_campaign_c = camp.campid
+     
+        
+        where source_campaign_c is not null
+        and date_part('year', camp.created_date) >= 2022
