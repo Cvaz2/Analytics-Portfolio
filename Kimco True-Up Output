@@ -1,0 +1,35 @@
+select * from
+
+(select jobnumber, sum(services), array_agg(timestamp)
+from
+
+(select *,
+	case when datediff <= '-0.3 days' then 1
+	when datediff >= '0.3 days' then 1
+	when datediff is null then 1 else 0 end as services
+from
+
+(select *, (timestamp - lag) as datediff
+from
+
+(select *, lag(timestamp)
+	over(partition by jobnumber order by 1)
+from
+
+(select jobnumber, workdate,
+	(workdate|| ' ' ||coalesce(timein, timeout, '00:00:00'))::timestamp
+from timekeeping2
+where lower(customer) like 'us cellular'
+	and workdate between '2022-04-18' and '2022-04-25' -- needs to be updated with new data or changed to rolling
+ 	and hourstype <> 'Travel Time'
+order by 1,3) a) aa) aaa) aaaa
+
+group by jobnumber)aaaaa
+
+left join
+(Select jobnumber, jobdescription, count(distinct(workdate)) as servicesperformed
+from timekeeping2
+where workdate between '2022-04-18' and '2022-04-25'
+and lower(customer) like 'us cellular' -- likely need to add "and customer like 'T-MOBILE'" clause when more customer data is present
+group by 1,2
+order by 1) b on aaaaa.jobnumber = b.jobnumber;
