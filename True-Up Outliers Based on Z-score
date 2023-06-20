@@ -1,0 +1,40 @@
+create view TTT as
+select *, (totalhours / servicesperformed)::numeric(36,2) as avghours,
+	case when (totalhours / servicesperformed) > 5 then 1 else 0 end as flagged
+from
+(select jobnumber, jobdescription, 
+ 	count(distinct(workdate)) as servicesperformed, 
+ 	sum(regularhours) as totalhours 
+from timekeeping2
+where workdate between '2022-04-11' and '2022-04-17'
+group by 1,2
+order by 4 desc) a;
+
+
+-------------------------------------------------------------------------------------
+
+
+select *, ((avghours - overallavg)/overallstd)::numeric(6,2) as z_score,
+		case when ((avghours - overallavg)/overallstd)::numeric(6,2) > 2.5 then 1 else 0 end as outlier
+from 
+
+(select *, (totalhours / servicesperformed)::numeric(36,2) as avghours,
+	case when (totalhours / servicesperformed) > 5 then 1 else 0 end as flagged
+from
+(select jobnumber, jobdescription, 
+ 	count(distinct(workdate)) as servicesperformed, 
+ 	sum(regularhours) as totalhours 
+from timekeeping2
+where workdate between '2022-04-11' and '2022-04-17'
+group by 1,2
+order by 4 desc) a) aa
+
+join
+(select avg(avghours)::numeric(6,2) as overallavg,
+		stddev_samp(avghours)::numeric(6,2) as overallstd
+from ttt --ttt is a view I created which is essentially lines 5-14. referencing a or aa didn't work.
+where jobnumber not in (963012,995535,994972,992642,995631,994688)
+) b on 1=1 
+
+where jobnumber not in (963012,995535,994972,992642,995631,994688) --removed sig stores + commerical site
+order by z_score desc;
