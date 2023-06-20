@@ -1,0 +1,412 @@
+select * from(
+
+select *, row_number()over(partition by  opportunity_name, opp_id_model, sfinstance, derived_source_type, campaign_id_model, opp_value order by 1) as rownum 
+
+from(
+
+select *, case when SFINSTANCE IN('VCC','VBC') then null  
+        when rlike(role_name,'.*amer.*|.*latam.*|.*west.*|.*east.*','i') then 'AMERICAS'
+		when rlike(role_name,'.*kr.*|.*china.*|.*apac.*|.*sea.*|.*roa.*|.*japan.*|.*anz.*','i') then 'APAC'
+		when rlike(role_name,'.*mea.*|.*uk.*|.*ee cis.*|.*emea.*|.*eur-.*|.*dach.*|.*nordics.*','i') then 'EMEA'
+        when rlike(division,'.*amer.*|.*latam.*|.*west.*|.*east.*','i') then 'AMERICAS'
+        when rlike(division,'.*kr.*|.*china.*|.*apac.*|.*sea.*|.*roa.*|.*japan.*|.*anz.*','i') then 'APAC'
+        when rlike(division,'.*mea.*|.*uk.*|.*ee cis.*|.*emea.*|.*eur-.*|.*dach.*|.*nordics.*','i') then 'EMEA'
+		when region_c ilike '%americas%' then 'AMERICAS'
+        when region_c ilike '%amer%' then 'AMERICAS'
+		when region_c = 'APAC' then 'APAC'
+		when region_c = 'EMEA' then 'EMEA' end as API_Sales_Region
+        
+from
+
+(select  SFINSTANCE, DERIVED_SOURCE_TYPE, Campaign_Name_Model, OPPORTUNITY_NAME, OPP_VALUE, STAGE_NAME, OPPORTUNITY_TYPE, OPP_CREATED_DATE::date as OPP_CREATED_DATE, SALES_ACCEPTED_DATE, OPP_CLOSE_DATE, 
+        OPP_IS_CLOSED, CAMPAIGN_TYPE, CAMPAIGN_BUSINESS_GROUP, CAMP_REGION, CAMP_CREATED_DATE, Campaign_ID_Model, Opp_ID_Model, ACCOUNT_ID, camp_actual_cost, account_name, 
+        account_type, Camp_Leads, Camp_Conv_Leads, Camp_Contacts, Camp_Responses, OWNER_ID, region_c, billing_country, CURRENCY_ISO_CODE, camp_owner_name, sub_division, LEAD_SOURCE, camp_start_date
+from
+
+(with opp as (select SALES_ACCEPTED_DATE_C, OPPORTUNITY_TYPE, NAME, IS_DELETED, IS_CLOSED, CLOSE_DATE, amount as opp_value, ACCOUNT_ID, CURRENCY_ISO_CODE, ID, STAGE_NAME, 
+              case when source_campaign_c = '7010X000000qIALQA2' and campaign_id is not null then campaign_id else coalesce(source_campaign_c,CAMPAIGN_ID) end as Derived_Campaign_ID, 
+              LEAD_SOURCE, CREATED_DATE, OWNER_ID, case when region_c is null or region_c = '' then 'AMERICAS' else upper(region_c) end as region_c, 
+              opportunity_sub_division_c as sub_division, 'API' as SFInstance
+        from "EDW"."BASEDW"."API_SF_OPPORTUNITY"
+        union
+        select SALES_ACCEPTED_DATE_C, OPPORTUNITY_TYPE, NAME, IS_DELETED, IS_CLOSED, CLOSE_DATE, arr_impact_c as opp_value, ACCOUNT_ID, CURRENCY_ISO_CODE, ID, STAGE_NAME, 
+              coalesce(source_campaign_c,CAMPAIGN_ID) as Derived_Campaign_ID, LEAD_SOURCE, CREATED_DATE, OWNER_ID, null as region_c, null as sub_division, 'VCC' as SFInstance
+        from "EDW"."BASEDW"."NVM_SF_OPPORTUNITY"
+        union
+        select SALES_ACCEPTED_DATE_C, OPPORTUNITY_TYPE, NAME, IS_DELETED, IS_CLOSED, CLOSE_DATE, amount*12 as opp_value, ACCOUNT_ID, CURRENCY_ISO_CODE, ID, STAGE_NAME, 
+              coalesce(source_campaign_c,CAMPAIGN_ID) as Derived_Campaign_ID, LEAD_SOURCE, CREATED_DATE, OWNER_ID,null as region_c, null as sub_division, 'VBC' as SFInstance
+        from "EDW"."BASEDW"."VBS_SF_OPPORTUNITY"),
+    
+    infl as(with infl_v1 as (select OPPORTUNITY_ID as INFL_OppID, CAMPAIGN_ID as INFL_Campaign_ID, MODEL_ID, CONTACT_ID as INFL_Contact_ID, 'API' as SFInstance
+        from "EDW"."BASEDW"."API_SF_CAMPAIGN_INFLUENCE"
+        union
+        select OPPORTUNITY_ID as INFL_OppID, CAMPAIGN_ID as INFL_Campaign_ID, MODEL_ID, CONTACT_ID as INFL_Contact_ID, 'VCC' as SFInstance
+        from "EDW"."BASEDW"."NVM_SF_CAMPAIGN_INFLUENCE"
+        union
+        select OPPORTUNITY_ID as INFL_OppID, CAMPAIGN_ID as INFL_Campaign_ID, MODEL_ID, CONTACT_ID as INFL_Contact_ID, 'VBC' as SFInstance
+        from "EDW"."BASEDW"."VBS_SF_CAMPAIGN_INFLUENCE"), 
+                    
+                    
+        contact as (select id as contactid, email as contactemail
+                    from "EDW"."BASEDW"."API_SF_CONTACT"
+                    union
+                    select id as contactid, email as contactemail
+                    from "EDW"."BASEDW"."NVM_SF_CONTACT"
+                    union
+                    select id as contactid, email as contactemail
+                    from "EDW"."BASEDW"."VBS_SF_CONTACT")
+                    
+                    
+                    select * from infl_v1 left join contact on infl_contact_id = contactid),
+        
+    workaround as(  with b as(with  memb as (select EMAIL, ID, CAMPAIGN_ID, LEAD_ID, contact_id, STATUS, HAS_RESPONDED, CREATED_DATE, CREATED_BY_ID, FIRST_RESPONDED_DATE, 'API' as SFInstance
+             from "EDW"."BASEDW"."API_SF_CAMPAIGN_MEMBER"
+             union
+             select EMAIL, ID, CAMPAIGN_ID, LEAD_ID, contact_id, STATUS, HAS_RESPONDED, CREATED_DATE, CREATED_BY_ID, FIRST_RESPONDED_DATE, 'VCC' as SFInstance
+             from "EDW"."BASEDW"."NVM_SF_CAMPAIGN_MEMBER"
+             union 
+             select EMAIL, ID, CAMPAIGN_ID, LEAD_ID, contact_id, STATUS, HAS_RESPONDED, CREATED_DATE, CREATED_BY_ID, FIRST_RESPONDED_DATE, 'VBC' as SFInstance
+             from "EDW"."BASEDW"."VBS_SF_CAMPAIGN_MEMBER"),
+
+             contact_lookup as(select email, contact_id as lookup, 'VCC' as SFInstance from "EDW"."BASEDW"."API_SF_CAMPAIGN_MEMBER" 
+             union
+             select email, contact_id as lookup, 'VCC' as SFInstance from "EDW"."BASEDW"."NVM_SF_CAMPAIGN_MEMBER" 
+             union
+             select email, contact_id as lookup, 'VCC' as SFInstance from "EDW"."BASEDW"."VBS_SF_CAMPAIGN_MEMBER")           
+
+             select memb.email, campaign_id, coalesce(contact_id, lookup) as contact_id_lookup, status as status_lookup, memb.sfinstance, memb.has_responded
+             from memb 
+             left join contact_lookup on memb.email = contact_lookup.email
+
+             where contact_id_lookup is not null and memb.email is not null)
+  
+             select * from b
+             ----------
+             union
+             ----------        
+             select email, campaign_id, contact_id as contact_id_lookup, status as status_lookup, sfinstance, has_responded
+             from 
+             (with memba as (select EMAIL, ID, CAMPAIGN_ID, LEAD_ID, coalesce(CONTACT_ID, lead_id) as contact_id, STATUS, HAS_RESPONDED, CREATED_DATE, CREATED_BY_ID, FIRST_RESPONDED_DATE, 'API' as SFInstance
+             from "EDW"."BASEDW"."API_SF_CAMPAIGN_MEMBER"
+             union
+             select EMAIL, ID, CAMPAIGN_ID, LEAD_ID, coalesce(CONTACT_ID, lead_id) as contact_id, STATUS, HAS_RESPONDED, CREATED_DATE, CREATED_BY_ID, FIRST_RESPONDED_DATE, 'VCC' as SFInstance
+             from "EDW"."BASEDW"."NVM_SF_CAMPAIGN_MEMBER"
+             union 
+             select EMAIL, ID, CAMPAIGN_ID, LEAD_ID, coalesce(CONTACT_ID, lead_id) as contact_id, STATUS, HAS_RESPONDED, CREATED_DATE, CREATED_BY_ID, FIRST_RESPONDED_DATE, 'VBC' as SFInstance
+             from "EDW"."BASEDW"."VBS_SF_CAMPAIGN_MEMBER")
+             select * from memba) c),
+        
+    camp as (select NAME, TYPE, case when id = '70114000002Z8s2AAC' then '2023-01-01' else created_date end as CREATED_DATE, ID, business_group_c, region_c as camp_region, actual_cost as camp_actual_cost, num_of_leads as Camp_Leads, 
+                    num_of_converted_leads as Camp_Conv_Leads, num_of_contacts as Camp_Contacts, num_of_responses as Camp_Responses, owner_id as camp_owner, start_date as camp_start_date, 'API' as SFInstance
+         from "EDW"."BASEDW"."API_SF_CAMPAIGN"
+         union
+         select NAME, TYPE, case when id = '70114000002Z8s2AAC' then '2023-01-01' else created_date end as CREATED_DATE, ID, business_group_c, geo_region_c as camp_region, actual_cost as camp_actual_cost, number_of_leads as Camp_Leads, 
+                number_of_converted_leads as Camp_Conv_Leads, number_of_contacts as Camp_Contacts, number_of_responses as Camp_Responses,owner_id as camp_owner,start_date as camp_start_date, 'VCC' as SFInstance
+         from "EDW"."BASEDW"."NVM_SF_CAMPAIGN"
+         union
+         select NAME, TYPE, case when id = '70114000002Z8s2AAC' then '2023-01-01' else created_date end as CREATED_DATE, ID, business_group_c, geo_region_c as camp_region, actual_cost as camp_actual_cost, num_of_leads as Camp_Leads, 
+                num_of_converted_leads as Camp_Conv_Leads, num_of_contacts as Camp_Contacts, num_of_responses as Camp_Responses,owner_id as camp_owner,start_date as camp_start_date, 'VBC' as SFInstance
+         from "EDW"."BASEDW"."VBS_SF_CAMPAIGN"),
+ 
+    Camp_Owner as (select name as owner_name, id as camp_owner_id
+                   from "EDW"."BASEDW"."API_SF_USER"
+                   union
+                   select name as owner_name,id as camp_owner_id
+                   from "EDW"."BASEDW"."NVM_SF_USER"
+                   union
+                   select first_name ||' '||last_name as Owner_Name, id as camp_owner_id
+                   from "EDW"."BASEDW"."VBS_SF_USER"),
+    
+    acct as (select name as Account_Name, id as account_id, type as account_type, billing_country, 'API' as SFInstance
+         from "EDW"."BASEDW"."API_SF_ACCOUNT"
+         union
+         select name as Account_Name, id as account_id, type as account_type,billing_country, 'VCC' as SFInstance
+         from "EDW"."BASEDW"."NVM_SF_ACCOUNT"
+         union
+         select name as Account_Name, id as account_id, type as account_type,billing_country, 'VBC' as SFInstance
+         from "EDW"."BASEDW"."VBS_SF_ACCOUNT")
+         
+select  infl.sfinstance, opp.name as Opportunity_Name, camp.name as campaign_name_model, infl_campaign_id as campaign_ID_model, opp.Derived_campaign_ID, 
+           case when opp.Derived_Campaign_ID = infl_campaign_id then 'Direct' else 'Influenced' end as derived_source_type, workaround.status_lookup,workaround.has_responded,
+           case when workaround.status_lookup IN('Accepted', 'Attended', 'Attended (NVM Event)', 'Attended On-demand', 'Attended On-Demand', 'Attended Show', 'Attended Show (Opp)', 'Clicked', 'Clicked Amazon Chime', 
+           'Clicked Business Support', 'Clicked Call Fwding', 'Clicked Email', 'Clicked Ess Mobile App', 'Clicked Getting Started', 'Clicked Portal Log In', 'Clicked User Portal', 
+           'Clicked Voicemail', 'Clicks', 'Confirming Address', 'Connected', 'Connected - Success', 'Converted', 'Converted (Off Page)', 'Delivered', 'Demo Request', 'Engaged', 
+           'Hot', 'Meeting accepted', 'Meeting Attended', 'Meeting Booked', 'Meeting Requested', 'Opened or Clicked', 'Registered', 'Responded', 'Responded via Chat', 
+           'Responded via List', 'Responded via Phone', 'Responded via We', 'Responded via Web', 'Visited', 'Visited Afterparty', 'Visited Booth', 'Visited Page', 'Visited Stand', 'Watched Demo', 'Downloaded',
+           'Attended diner','Attended Dinner','Attended Meeting','Attended meeting','Attended on Demand','Attendee','Booth Attendee','Booth Scans','Confirmed','Connected - Meeting Booked','High-Value Attended','Interviewed','Scanned','Session Attendee') then 'T'
+            when workaround.status_lookup ilike '%sent%' then 'F' when workaround.status_lookup IN('List','Used','Redeemed','Opened Email','Added','Shipped','No Show','Processing','Credited','Interviewed','Received','Hot - Satisfied',
+           'BDR Queue','Hot Lead','Nurture','Promo code registered','Scanned','On-Demand','Invited', 'Open', 'Opened','9','10','Added Post Show','Champion','Clicked DND','Clicked Email 2','Clicked Email 5','Clicked Follow Me','Clicked Google Store DL',
+           'Clicked IDC Whitepaper','Clicked Link','Clicked Refer Business','Clicked Simultaneous Ring','Clicked Start Referring','Clicked Training Guide','Cold','Download','Early Stage','Fulfillment','Gift','In Unresponsive Program','Level 1',
+           'Meeting Accepted','Mid Stage','Opened Email 2','Opened Email 3','Opened Email 4','Opened Email 5','Partner','Priority','Received','Referred On','Registered - did not attend','Replied (Interested)','Requested Case Study','Responded - rejected gift',
+           'Review Response Opp','Scheduled a call','SPS Session','Verified','VIP Lunch','Watched On Demand','Watched Replay','Won') then 'F' else workaround.has_responded end as Derived_Has_Responded,
+        opp_value,  workaround.email, camp.type as campaign_type, opp.stage_name, opp.sales_accepted_date_c as sales_accepted_date, opp.created_date::date as opp_created_date, 
+        camp.created_date::date as camp_created_date, opp.opportunity_type, Derived_Campaign_ID as Opportunity_Campaign, infl_oppid as opp_ID_Model, infl_contact_id, opp.account_id, 
+        business_group_c as Campaign_Business_Group, opp.is_closed as opp_is_closed, opp.close_date as opp_close_date, camp.camp_region, camp_actual_cost, account_name, account_type,
+        Camp_Leads, Camp_Conv_Leads, Camp_Contacts, Camp_Responses, OWNER_ID, region_c, billing_country, CURRENCY_ISO_CODE, camp_owner.owner_name as camp_owner_name, sub_division, LEAD_SOURCE, camp_start_date
+
+from infl
+
+join workaround on  infl_contact_id = workaround.contact_id_lookup or infl.contactemail = workaround.email
+join opp on infl_oppid = opp.id
+join camp on infl_campaign_id = camp.id 
+join acct on opp.account_id = acct.account_id 
+join camp_owner on camp.camp_owner = camp_owner.camp_owner_id
+
+where infl_campaign_id = workaround.campaign_id //required
+    and infl.model_id in('03V1O000000k9c6UAA', '03V4G000000PAtaUAG', '03V0X000000GnoRUAS') //required  - vbc, vcc, api model_id's - removed vbc '03V5Y000000PD4GUAW' 
+    and opp.name not ilike 'zz%' and opp.name not ilike 'yy%' and opp.name not ilike 'test_%'
+    and opp.name not ilike '%run rate%' and opp.name not ilike '%runrate%' and opp.name not ilike '%run-rate%'
+    and date_part(YEAR,opp.created_date) >= 2020
+    and date_part(YEAR,camp.created_date) >= 2020
+    and derived_has_responded = 'T'
+    and derived_source_type <> 'Direct'
+    and opp.is_deleted <> 'T'
+ 
+ and opp.name not ilike '%run rate%' and opp.name not ilike '%runrate%' and opp.name not ilike '%run-rate%'
+        and opp.name not ilike '%amendment %' and opp.name not ilike 'Care Case%' and opp.name not ilike '%bulk create%'
+ 
+    
+order by camp_created_date desc) influenced_model
+--------------
+union
+--------------
+select  SFINSTANCE, DERIVED_SOURCE_TYPE, Campaign_Name_Model, OPPORTUNITY_NAME, OPP_VALUE, STAGE_NAME, OPPORTUNITY_TYPE, OPP_CREATED_DATE::date as OPP_CREATED_DATE, SALES_ACCEPTED_DATE, OPP_CLOSE_DATE, OPP_IS_CLOSED, CAMPAIGN_TYPE, 
+        CAMPAIGN_BUSINESS_GROUP, CAMP_REGION, CAMP_CREATED_DATE, Campaign_ID_Model, Opp_ID_Model, ACCOUNT_ID, camp_actual_cost, account_name, account_type, Camp_Leads, Camp_Conv_Leads, Camp_Contacts, Camp_Responses,OWNER_ID, region_c, 
+        billing_country, CURRENCY_ISO_CODE, camp_owner_name, sub_division, LEAD_SOURCE, camp_start_date
+from 
+
+(with opp as (select SALES_ACCEPTED_DATE_C, OPPORTUNITY_TYPE, NAME, IS_DELETED, IS_CLOSED, CLOSE_DATE, amount as opp_value, ACCOUNT_ID, CURRENCY_ISO_CODE, ID, STAGE_NAME, 
+              case when source_campaign_c = '7010X000000qIALQA2' and campaign_id is not null then campaign_id else coalesce(source_campaign_c,CAMPAIGN_ID) end as Derived_Campaign_ID, 
+              LEAD_SOURCE, CREATED_DATE,OWNER_ID, case when region_c is null or region_c = '' then 'AMERICAS' else upper(region_c) end as region_c, 
+              opportunity_sub_division_c as sub_division,'API' as SFInstance
+        from "EDW"."BASEDW"."API_SF_OPPORTUNITY"
+        union
+        select SALES_ACCEPTED_DATE_C, OPPORTUNITY_TYPE, NAME, IS_DELETED, IS_CLOSED, CLOSE_DATE, arr_impact_c as opp_value, ACCOUNT_ID, CURRENCY_ISO_CODE, ID, STAGE_NAME, 
+              coalesce(source_campaign_c,CAMPAIGN_ID) as Derived_Campaign_ID, LEAD_SOURCE, CREATED_DATE,OWNER_ID,null as region_c, null as sub_division, 'VCC' as SFInstance
+        from "EDW"."BASEDW"."NVM_SF_OPPORTUNITY"
+        union
+        select SALES_ACCEPTED_DATE_C, OPPORTUNITY_TYPE, NAME, IS_DELETED, IS_CLOSED, CLOSE_DATE, amount*12 as opp_value, ACCOUNT_ID, CURRENCY_ISO_CODE, ID, STAGE_NAME, 
+              coalesce(source_campaign_c,CAMPAIGN_ID) as Derived_Campaign_ID, LEAD_SOURCE, CREATED_DATE,OWNER_ID,null as region_c, null as sub_division, 'VBC' as SFInstance
+        from "EDW"."BASEDW"."VBS_SF_OPPORTUNITY"),
+        
+  camp as (select   NAME, TYPE, case when id = '70114000002Z8s2AAC' then '2023-01-01' else created_date end as CREATED_DATE, ID, business_group_c, region_c as camp_region, actual_cost as camp_actual_cost, num_of_leads as Camp_Leads, 
+                    num_of_converted_leads as Camp_Conv_Leads, num_of_contacts as Camp_Contacts, num_of_responses as Camp_Responses,owner_id as camp_owner,start_date as camp_start_date,'API' as SFInstance
+         from "EDW"."BASEDW"."API_SF_CAMPAIGN"
+         union
+         select NAME, TYPE, case when id = '70114000002Z8s2AAC' then '2023-01-01' else created_date end as CREATED_DATE, ID, business_group_c, geo_region_c as camp_region, actual_cost as camp_actual_cost, number_of_leads as Camp_Leads, 
+                number_of_converted_leads as Camp_Conv_Leads, number_of_contacts as Camp_Contacts,  number_of_responses as Camp_Responses,owner_id as camp_owner,start_date as camp_start_date, 'VCC' as SFInstance
+         from "EDW"."BASEDW"."NVM_SF_CAMPAIGN"
+         union
+         select NAME, TYPE, case when id = '70114000002Z8s2AAC' then '2023-01-01' else created_date end as CREATED_DATE, ID, business_group_c, geo_region_c as camp_region, actual_cost as camp_actual_cost, num_of_leads as Camp_Leads, 
+                num_of_converted_leads as Camp_Conv_Leads, num_of_contacts as Camp_Contacts,  num_of_responses as Camp_Responses,owner_id as camp_owner,start_date as camp_start_date,'VBC' as SFInstance
+         from "EDW"."BASEDW"."VBS_SF_CAMPAIGN"),
+ 
+     Camp_Owner as (select name as owner_name, id as camp_owner_id
+                   from "EDW"."BASEDW"."API_SF_USER"
+                   union
+                   select name as owner_name,id as camp_owner_id
+                   from "EDW"."BASEDW"."NVM_SF_USER"
+                   union
+                   select first_name ||' '||last_name as Owner_Name, id as camp_owner_id
+                   from "EDW"."BASEDW"."VBS_SF_USER"),
+ 
+  acct as (select name as Account_Name, id as account_id, type as account_type,billing_country, 'API' as SFInstance
+         from "EDW"."BASEDW"."API_SF_ACCOUNT"
+         union
+         select name as Account_Name, id as account_id, type as account_type,billing_country, 'VCC' as SFInstance
+         from "EDW"."BASEDW"."NVM_SF_ACCOUNT"
+         union
+         select name as Account_Name, id as account_id, type as account_type,billing_country, 'VBC' as SFInstance
+         from "EDW"."BASEDW"."VBS_SF_ACCOUNT")
+
+select  opp.sfinstance, 'Direct' as derived_source_type, opp.name as Opportunity_Name, camp.name as campaign_name_model, opp.Derived_campaign_ID as campaign_ID_model, opp.id as opp_id_model,
+        opp_value, camp.type as campaign_type, opp.stage_name, opp.sales_accepted_date_c as sales_accepted_date, opp.created_date::date as opp_created_date, 
+        camp.created_date::date as camp_created_date, opp.opportunity_type, opp.account_id, business_group_c as Campaign_Business_Group, opp.is_closed as opp_is_closed, 
+        opp.close_date as opp_close_date, camp.camp_region, camp_actual_cost, account_name, account_type, Camp_Leads, Camp_Conv_Leads, Camp_Contacts, Camp_Responses,OWNER_ID, region_c, billing_country, 
+        CURRENCY_ISO_CODE,  camp_owner.owner_name as camp_owner_name, sub_division, LEAD_SOURCE, camp_start_date
+        
+from opp
+
+join camp on  opp.derived_campaign_id = camp.id 
+join acct on opp.account_id = acct.account_id 
+join camp_owner on camp.camp_owner = camp_owner.camp_owner_id
+
+where date_part(YEAR,camp.created_date) >=2020
+    and date_part(YEAR,opp_created_date) >= 2020
+    and opp.name not ilike 'zz%' and opp.name not ilike 'yy%' and opp.name not ilike 'test_%'
+    and opp.name not ilike '%run rate%' and opp.name not ilike '%runrate%' and opp.name not ilike '%run-rate%'
+    and opp.is_deleted <> 'T'
+
+order by camp_created_date desc) sourced_model
+--------------
+union
+--------------
+select  SFINSTANCE, '--CAMPAIGN--RECORD--ONLY--' as DERIVED_SOURCE_TYPE, Campaign_Name_Model, '--CAMPAIGN--RECORD--ONLY--' as OPPORTUNITY_NAME, null as OPP_VALUE, null as STAGE_NAME, 
+        '--CAMPAIGN--RECORD--ONLY--' as OPPORTUNITY_TYPE, null as OPP_CREATED_DATE, null as SALES_ACCEPTED_DATE, null as OPP_CLOSE_DATE, '--CAMPAIGN--RECORD--ONLY--' as OPP_IS_CLOSED, 
+        type as CAMPAIGN_TYPE, business_group_c as CAMPAIGN_BUSINESS_GROUP, camp_region as CAMP_REGION, created_date as CAMP_CREATED_DATE, ID as Campaign_ID_Model, null as Opp_ID_Model, 
+        null as ACCOUNT_ID, camp_actual_cost, '--CAMPAIGN--RECORD--ONLY--' as account_name, '--CAMPAIGN--RECORD--ONLY--' as account_type, Camp_Leads, Camp_Conv_Leads, Camp_Contacts, Camp_Responses,
+        null as OWNER_ID, null as region_c, null as billing_country, null as CURRENCY_ISO_CODE, camp_owner_name, null as sub_division, null as LEAD_SOURCE, camp_start_date
+from
+
+(with camp as (select NAME, TYPE, case when id = '70114000002Z8s2AAC' then '2023-01-01' else created_date end as CREATED_DATE, ID, business_group_c, region_c as camp_region, actual_cost as camp_actual_cost, num_of_leads as Camp_Leads, 
+                    num_of_converted_leads as Camp_Conv_Leads, num_of_contacts as Camp_Contacts, num_of_responses as Camp_Responses,owner_id as camp_owner,start_date as camp_start_date, 'API' as SFInstance
+         from "EDW"."BASEDW"."API_SF_CAMPAIGN"
+         union
+         select NAME, TYPE, case when id = '70114000002Z8s2AAC' then '2023-01-01' else created_date end as CREATED_DATE, ID, business_group_c, geo_region_c as camp_region, actual_cost as camp_actual_cost, number_of_leads as Camp_Leads, 
+                number_of_converted_leads as Camp_Conv_Leads, number_of_contacts as Camp_Contacts, number_of_responses as Camp_Responses,owner_id as camp_owner,start_date as camp_start_date, 'VCC' as SFInstance
+         from "EDW"."BASEDW"."NVM_SF_CAMPAIGN"
+         union
+         select NAME, TYPE, case when id = '70114000002Z8s2AAC' then '2023-01-01' else created_date end as CREATED_DATE, ID, business_group_c, geo_region_c as camp_region, actual_cost as camp_actual_cost, num_of_leads as Camp_Leads, 
+                num_of_converted_leads as Camp_Conv_Leads, num_of_contacts as Camp_Contacts, num_of_responses as Camp_Responses,owner_id as camp_owner,start_date as camp_start_date, 'VBC' as SFInstance
+         from "EDW"."BASEDW"."VBS_SF_CAMPAIGN"), 
+ 
+     Camp_Owner as (select name as owner_name, id as camp_owner_id
+                   from "EDW"."BASEDW"."API_SF_USER"
+                   union
+                   select name as owner_name, id as camp_owner_id
+                   from "EDW"."BASEDW"."NVM_SF_USER"
+                   union
+                   select first_name ||' '||last_name as Owner_Name, id as camp_owner_id
+                   from "EDW"."BASEDW"."VBS_SF_USER")
+         
+select name as campaign_name_model, sfinstance, camp_actual_cost, ID, created_date, business_group_c, camp_region, type, Camp_Leads, Camp_Conv_Leads, Camp_Contacts, Camp_Responses,  camp_owner.owner_name as camp_owner_name, camp_start_date
+
+from camp
+join camp_owner on camp.camp_owner = camp_owner.camp_owner_id
+
+where date_part(YEAR, created_date) >= 2020) all_campaigns
+--------------
+union
+--------------
+select  SFINSTANCE, DERIVED_SOURCE_TYPE, Campaign_Name_Model, OPPORTUNITY_NAME, OPP_VALUE, STAGE_NAME, OPPORTUNITY_TYPE, OPP_CREATED_DATE::date as OPP_CREATED_DATE, SALES_ACCEPTED_DATE, OPP_CLOSE_DATE, OPP_IS_CLOSED, CAMPAIGN_TYPE, 
+        CAMPAIGN_BUSINESS_GROUP, CAMP_REGION, CAMP_CREATED_DATE, Campaign_ID_Model, Opp_ID_Model, ACCOUNT_ID, camp_actual_cost, account_name, account_type, Camp_Leads, Camp_Conv_Leads, Camp_Contacts, Camp_Responses,OWNER_ID, region_c, 
+        billing_country, CURRENCY_ISO_CODE, camp_owner_name, sub_division, LEAD_SOURCE, camp_start_date
+ 
+from
+
+(with contact_base as(with  memb as (select EMAIL, ID, CAMPAIGN_ID, LEAD_ID, contact_id, STATUS, HAS_RESPONDED, CREATED_DATE, CREATED_BY_ID, FIRST_RESPONDED_DATE, 'API' as SFInstance
+             from "EDW"."BASEDW"."API_SF_CAMPAIGN_MEMBER"
+             union
+             select EMAIL, ID, CAMPAIGN_ID, LEAD_ID, contact_id, STATUS, HAS_RESPONDED, CREATED_DATE, CREATED_BY_ID, FIRST_RESPONDED_DATE, 'VCC' as SFInstance
+             from "EDW"."BASEDW"."NVM_SF_CAMPAIGN_MEMBER"
+             union 
+             select EMAIL, ID, CAMPAIGN_ID, LEAD_ID, contact_id, STATUS, HAS_RESPONDED, CREATED_DATE, CREATED_BY_ID, FIRST_RESPONDED_DATE, 'VBC' as SFInstance
+             from "EDW"."BASEDW"."VBS_SF_CAMPAIGN_MEMBER"),
+
+             contact_lookup as(select email, contact_id as lookup, 'VCC' as SFInstance from "EDW"."BASEDW"."API_SF_CAMPAIGN_MEMBER" 
+             union
+             select email, contact_id as lookup, 'VCC' as SFInstance from "EDW"."BASEDW"."NVM_SF_CAMPAIGN_MEMBER" 
+             union
+             select email, contact_id as lookup, 'VCC' as SFInstance from "EDW"."BASEDW"."VBS_SF_CAMPAIGN_MEMBER"),
+                                   
+             contacts as    (select opportunity_id, contact_id  
+                         from "EDW"."BASEDW"."API_SF_OPPORTUNITY_CONTACT_ROLE"
+                         union
+                         select opportunity_id, contact_id 
+                         from "EDW"."BASEDW"."NVM_SF_OPPORTUNITY_CONTACT_ROLE"
+                         union
+                         select opportunity_id, contact_id 
+                         from "EDW"."BASEDW"."VBS_SF_OPPORTUNITY_CONTACT_ROLE")                      
+                       
+
+             select memb.email, memb.campaign_id, coalesce(memb.contact_id, lookup) as contact_id_lookup, memb.status as status_lookup, memb.sfinstance, memb.has_responded, contacts.opportunity_id,
+             case when status_lookup IN('Accepted', 'Attended', 'Attended (NVM Event)', 'Attended On-demand', 'Attended On-Demand', 'Attended Show', 'Attended Show (Opp)', 'Clicked', 'Clicked Amazon Chime', 
+           'Clicked Business Support', 'Clicked Call Fwding', 'Clicked Email', 'Clicked Ess Mobile App', 'Clicked Getting Started', 'Clicked Portal Log In', 'Clicked User Portal', 
+           'Clicked Voicemail', 'Clicks', 'Confirming Address', 'Connected', 'Connected - Success', 'Converted', 'Converted (Off Page)', 'Delivered', 'Demo Request', 'Engaged', 
+           'Hot', 'Meeting accepted', 'Meeting Attended', 'Meeting Booked', 'Meeting Requested', 'Opened or Clicked', 'Registered', 'Responded', 'Responded via Chat', 
+           'Responded via List', 'Responded via Phone', 'Responded via We', 'Responded via Web', 'Visited', 'Visited Afterparty', 'Visited Booth', 'Visited Page', 'Visited Stand', 'Watched Demo', 'Downloaded',
+           'Attended diner','Attended Dinner','Attended Meeting','Attended meeting','Attended on Demand','Attendee','Booth Attendee','Booth Scans','Confirmed','Connected - Meeting Booked','High-Value Attended','Interviewed','Scanned','Session Attendee') then 'T'
+            when status_lookup ilike '%sent%' then 'F' when status_lookup IN('List','Used','Redeemed','Opened Email','Added','Shipped','No Show','Processing','Credited','Interviewed','Received','Hot - Satisfied',
+           'BDR Queue','Hot Lead','Nurture','Promo code registered','Scanned','On-Demand','Invited', 'Open', 'Opened','9','10','Added Post Show','Champion','Clicked DND','Clicked Email 2','Clicked Email 5','Clicked Follow Me','Clicked Google Store DL',
+           'Clicked IDC Whitepaper','Clicked Link','Clicked Refer Business','Clicked Simultaneous Ring','Clicked Start Referring','Clicked Training Guide','Cold','Download','Early Stage','Fulfillment','Gift','In Unresponsive Program','Level 1',
+           'Meeting Accepted','Mid Stage','Opened Email 2','Opened Email 3','Opened Email 4','Opened Email 5','Partner','Priority','Received','Referred On','Registered - did not attend','Replied (Interested)','Requested Case Study','Responded - rejected gift',
+           'Review Response Opp','Scheduled a call','SPS Session','Verified','VIP Lunch','Watched On Demand','Watched Replay','Won') then 'F' else has_responded end as Derived_Has_Responded
+             
+             from memb 
+             join contact_lookup on memb.email = contact_lookup.email
+             join contacts on memb.contact_id = contacts.contact_id
+
+             where contact_id_lookup is not null and memb.email is not null and derived_has_responded = 'T'),
+             
+             
+        opp as (select SALES_ACCEPTED_DATE_C, OPPORTUNITY_TYPE, NAME, IS_DELETED, IS_CLOSED, CLOSE_DATE, amount as opp_value, ACCOUNT_ID, CURRENCY_ISO_CODE, ID, STAGE_NAME, 
+              case when source_campaign_c = '7010X000000qIALQA2' and campaign_id is not null then campaign_id else coalesce(source_campaign_c,CAMPAIGN_ID) end as Derived_Campaign_ID, 
+                LEAD_SOURCE, CREATED_DATE, OWNER_ID, case when region_c is null or region_c = '' then 'AMERICAS' else upper(region_c) end as region_c, 
+              opportunity_sub_division_c as sub_division, 'API' as SFInstance
+        from "EDW"."BASEDW"."API_SF_OPPORTUNITY"
+        union
+        select SALES_ACCEPTED_DATE_C, OPPORTUNITY_TYPE, NAME, IS_DELETED, IS_CLOSED, CLOSE_DATE, arr_impact_c as opp_value, ACCOUNT_ID, CURRENCY_ISO_CODE, ID, STAGE_NAME, 
+              coalesce(source_campaign_c,CAMPAIGN_ID) as Derived_Campaign_ID, LEAD_SOURCE, CREATED_DATE, OWNER_ID, null as region_c, null as sub_division, 'VCC' as SFInstance
+        from "EDW"."BASEDW"."NVM_SF_OPPORTUNITY"
+        union
+        select SALES_ACCEPTED_DATE_C, OPPORTUNITY_TYPE, NAME, IS_DELETED, IS_CLOSED, CLOSE_DATE, amount*12 as opp_value, ACCOUNT_ID, CURRENCY_ISO_CODE, ID, STAGE_NAME, 
+              coalesce(source_campaign_c,CAMPAIGN_ID) as Derived_Campaign_ID, LEAD_SOURCE, CREATED_DATE, OWNER_ID,null as region_c, null as sub_division, 'VBC' as SFInstance
+        from "EDW"."BASEDW"."VBS_SF_OPPORTUNITY"),
+        
+      acct as (select name as Account_Name, id as account_id, type as account_type, billing_country, 'API' as SFInstance
+         from "EDW"."BASEDW"."API_SF_ACCOUNT"
+         union
+         select name as Account_Name, id as account_id, type as account_type,billing_country, 'VCC' as SFInstance
+         from "EDW"."BASEDW"."NVM_SF_ACCOUNT"
+         union
+         select name as Account_Name, id as account_id, type as account_type,billing_country, 'VBC' as SFInstance
+         from "EDW"."BASEDW"."VBS_SF_ACCOUNT"),   
+         
+         
+       camp as (select NAME, TYPE, case when id = '70114000002Z8s2AAC' then '2023-01-01' else created_date end as CREATED_DATE, ID, business_group_c, region_c as camp_region, actual_cost as camp_actual_cost, num_of_leads as Camp_Leads, 
+                    num_of_converted_leads as Camp_Conv_Leads, num_of_contacts as Camp_Contacts, num_of_responses as Camp_Responses,owner_id as camp_owner,start_date as camp_start_date, 'API' as SFInstance
+         from "EDW"."BASEDW"."API_SF_CAMPAIGN"
+         union
+         select NAME, TYPE, case when id = '70114000002Z8s2AAC' then '2023-01-01' else created_date end as CREATED_DATE, ID, business_group_c, geo_region_c as camp_region, actual_cost as camp_actual_cost, number_of_leads as Camp_Leads, 
+                number_of_converted_leads as Camp_Conv_Leads, number_of_contacts as Camp_Contacts, number_of_responses as Camp_Responses,owner_id as camp_owner,start_date as camp_start_date, 'VCC' as SFInstance
+         from "EDW"."BASEDW"."NVM_SF_CAMPAIGN"
+         union
+         select NAME, TYPE, case when id = '70114000002Z8s2AAC' then '2023-01-01' else created_date end as CREATED_DATE, ID, business_group_c, geo_region_c as camp_region, actual_cost as camp_actual_cost, num_of_leads as Camp_Leads, 
+                num_of_converted_leads as Camp_Conv_Leads, num_of_contacts as Camp_Contacts, num_of_responses as Camp_Responses,owner_id as camp_owner,start_date as camp_start_date, 'VBC' as SFInstance
+         from "EDW"."BASEDW"."VBS_SF_CAMPAIGN"),
+ 
+        camp_owner as (select name as owner_name, id as camp_owner_id
+                   from "EDW"."BASEDW"."API_SF_USER"
+                   union
+                   select name as owner_name, id as camp_owner_id
+                   from "EDW"."BASEDW"."NVM_SF_USER"
+                   union
+                   select first_name ||' '||last_name as Owner_Name,id as camp_owner_id
+                   from "EDW"."BASEDW"."VBS_SF_USER")
+             
+        select opp.sfinstance, 'Influenced' as derived_source_type, opp.name as opportunity_name, opp.opp_value, opp.stage_name, opp.opportunity_type, opp.created_date as opp_created_date, opp.sales_accepted_date_c as sales_accepted_date, 
+                opp.close_date as opp_close_date, opp.is_closed as opp_is_closed, opp.id as opp_id_model, opp.owner_id, opp.region_c, opp.currency_iso_code, contact_base.campaign_id as campaign_id_model, camp.name as campaign_name_model,
+                camp.type as campaign_type, camp.business_group_c as campaign_business_group, camp.camp_region, camp.created_date as camp_created_date, camp.camp_actual_cost, camp.camp_leads, camp.camp_conv_leads, camp.camp_contacts, camp.camp_responses,
+                acct.account_id, acct.account_name, acct.account_type, acct.billing_country,  camp_owner.owner_name as camp_owner_name, sub_division, LEAD_SOURCE, camp_start_date
+        
+        from opp
+        
+        join contact_base on contact_base.opportunity_id = opp_id_model
+        join camp on contact_base.campaign_id = camp.id
+        join acct on opp.account_id = acct.account_id
+        join camp_owner on camp.camp_owner = camp_owner.camp_owner_id
+       
+        
+        where opp.derived_campaign_id is null
+        and date_part('year', opp.created_date) >= 2020
+        and date_part(YEAR,camp.created_date) >=2020
+        and opp.name not ilike 'zz%' and opp.name not ilike 'yy%' and opp.name not ilike '%test_%'
+        and opp.name not ilike '%run rate%' and opp.name not ilike '%runrate%' and opp.name not ilike '%run-rate%'
+        and opp.name not ilike '%amendment %' and opp.name not ilike 'Care Case%' and opp.name not ilike '%bulk create%'
+        and opp.name <> 'Partner Opportunity' and opp.name <> 'Renewal Opportunity'
+        and case when lead_source ilike '%sales Line%' then 1 else 0 end <> 1
+        and opp_value >=0
+        and opp.is_deleted <> 'T') opp_add_ins) a
+ 
+
+left join 
+(select usr.name, usr.email, usrl.name as role_name, usr.id as opp_owner_id, usr.division as division
+from "EDW"."BASEDW"."API_SF_USER" usr
+join "EDW"."BASEDW"."API_SF_USER_ROLE" usrl on  usrl.id = usr.user_role_id) Users
+on owner_id = opp_owner_id) v3
+
+
+left join "EDW"."TABLEAU"."V_EXCHANGE_RATE" exch on exch.from_currency = v3.currency_iso_code and exch.to_currency = 'USD'
+    and v3.opp_created_date between exch.record_start_date and exch.record_end_date) model
+    
+    where rownum <=1
