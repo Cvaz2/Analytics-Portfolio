@@ -1,0 +1,28 @@
+select cast('Sub' as varchar(5)) category, pakh.api_key_in_src prnt_api_key, akh.api_key_in_src api_key, ppah.acct_id_in_src prnt_prtnr_acct_id,
+    ppa.name prnt_api_key_prtnr, pah.acct_id_in_src prtnr_acct_id, pa.name api_key_prtnr
+from edw.dmart.api_key ak
+join edw.dmart.api_key_hub akh on ak.api_key_id = akh.api_key_id
+join edw.dmart.api_key_hub pakh on ak.prnt_api_key_id = pakh.api_key_id
+join edw.dmart.api_key pak on ak.prnt_api_key_id = pak.api_key_id and pak.curr_rec_ind = 'Y'
+left join edw.dmart.acct_hub ppah on pak.prtnr_acct_id = ppah.acct_id
+left join edw.basedw.api_sf_account ppa on ppah.acct_id_in_src = ppa.id
+left join edw.dmart.acct_hub pah on ak.prtnr_acct_id = pah.acct_id
+left join edw.basedw.api_sf_account pa on pah.acct_id_in_src = pa.id
+where ak.curr_rec_ind = 'Y'
+and pak.prtnr_acct_id <> 0
+and ak.prtnr_acct_id = 0
+union all
+select cast('Main' as varchar(5)) category, pakh.api_key_in_src prnt_api_key, akh.api_key_in_src api_key, ppah.acct_id_in_src prnt_prtnr_acct_id,
+    ppa.name prnt_api_key_prtnr, pah.acct_id_in_src prtnr_acct_id, pa.name api_key_prtnr
+from edw.dmart.api_key ak
+join edw.dmart.api_key_hub akh on ak.api_key_id = akh.api_key_id
+join edw.dmart.api_key_hub pakh on ak.prnt_api_key_id = pakh.api_key_id
+join edw.dmart.api_key pak on ak.prnt_api_key_id = pak.api_key_id and pak.curr_rec_ind = 'Y'
+left join edw.dmart.acct_hub ppah on pak.prtnr_acct_id = ppah.acct_id
+left join edw.basedw.api_sf_account ppa on ppah.acct_id_in_src = ppa.id
+left join edw.dmart.acct_hub pah on ak.prtnr_acct_id = pah.acct_id
+left join edw.basedw.api_sf_account pa on pah.acct_id_in_src = pa.id
+where ak.curr_rec_ind = 'Y'
+and pak.prtnr_acct_id = 0
+and ak.prtnr_acct_id <> 0
+order by 1 desc, 2;
